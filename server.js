@@ -79,6 +79,7 @@ wss.on('connection', (ws, req) => {
       case 'order': {
         const order = {
           id: Date.now(),
+          type: 'order',
           mesa: msg.mesa,
           label: msg.label || `Mesa ${msg.mesa}`,
           dest: msg.dest,
@@ -90,11 +91,11 @@ wss.on('connection', (ws, req) => {
         };
         orders.push(order);
 
-        // Enviar al destino correcto
+        // Enviar al destino correcto — reenviar el objeto plano directamente
         const destRole = { barra: 'bar', cocina: 'kitchen', caja: 'cash' }[msg.dest] || msg.dest;
-        broadcastToRole(destRole, { type: 'order', order });
+        broadcastToRole(destRole, order);
 
-        // Confirmar al camarero que lo mandó
+        // Confirmar al camarero
         sendTo(ws, { type: 'ack', orderId: order.id, dest: msg.dest });
 
         log(`Pedido #${order.id} | ${order.label} → ${msg.dest} (${order.items.length} ítems)`);
