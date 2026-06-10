@@ -6,6 +6,11 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
+// ─── Config reporte ───────────────────────────────────────────────────────────
+const RESEND_KEY   = process.env.RESEND_KEY   || 're_bhhvWhBa_9mh4kubvyFLwb5MU9GJTchrf';
+const REPORT_EMAIL = process.env.REPORT_EMAIL || 'criptotjay@gmail.com';
+const FROM_EMAIL   = process.env.FROM_EMAIL   || 'quickorder@resend.dev';
+
 // ─── Estado en memoria ───────────────────────────────────────────────────────
 let mesas = Array.from({ length: 20 }, (_, i) => ({
   id: i + 1,
@@ -193,6 +198,163 @@ app.post('/reset', (_, res) => {
   log('Reset del día');
   res.json({ ok: true });
 });
+
+// ─── Reporte diario ───────────────────────────────────────────────────────────
+async function enviarReporte() {
+  if (!orders.length) { log('Reporte: sin ventas hoy, no se envía'); return; }
+
+  const fecha = new Date().toLocaleDateString('es-ES', {
+    weekday:'long', year:'numeric', month:'long', day:'numeric', timeZone:'Europe/Madrid'
+  });
+
+  // Totales
+  const totalVentas   = orders.reduce((s, o) => s + (o.total || 0), 0);
+  const totalComandas = orders.length;
+
+  // Desglose por categoría
+  const porCat = {};
+  orders.forEach(o => {
+    (o.items || []).forEach(it => {
+      const cat = it.cat || 'otros';
+      if (!porCat[cat]) porCat[cat] = { qty: 0, total: 0 };
+      porCat[cat].qty   += it.q || 1;
+      porCat[cat].total += (it.p || 0) * (it.q || 1);
+    });
+  });
+
+  // Platos más vendidos (top 5)
+  const porPlato = {};
+  orders.forEach(o => {
+    (o.items || []).forEach(it => {
+      if (!porPlato[it.n]) porPlato[it.n] = { qty: 0, total: 0 };
+      porPlato[it.n].qty   += it.q || 1;
+      porPlato[it.n].total += (it.p || 0) * (it.q || 1);
+    });
+  });
+  const top5 = Object.entries(porPlato)
+    .sort((a, b) => b[1].qty - a[1].qty)
+    .slice(0, 5);
+
+  // Construir HTML del email
+  const catRows = Object.entries(porCat).map(([cat, d]) =>
+    `<tr><td style="padding:8px 12px;text-transform:capitalize">${cat}</td>
+     <td style="padding:8px 12px;text-align:center">${d.qty}</td>
+     <td style="padding:8px 12px;text-align:right;font-weight:700">${d.total.toFixed(2)} €</td></tr>`
+  ).join('');
+
+  const top5Rows = top5.map(([n, d]) =>
+    `<tr><td style="padding:8px 12px">${n}</td>
+     <td style="padding:8px 12px;text-align:center">${d.qty}</td>
+     <td style="padding:8px 12px;text-align:right">${d.total.toFixed(2)} €</td></tr>`
+  ).join('');
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:#f5f5f5;margin:0;padding:20px">
+  <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+    
+    <div style="background:#FF6B35;padding:28px 32px">
+      <div style="font-size:22px;font-weight:800;color:#fff">Runfola · Reporte diario</div>
+      <div style="font-size:14px;color:rgba(255,255,255,.8);margin-top:4px;text-transform:capitalize">${fecha}</div>
+    </div>
+
+    <div style="padding:28px 32px">
+      <div style="display:flex;gap:16px;margin-bottom:28px">
+        <div style="flex:1;background:#fff8f5;border:1.5px solid #FF6B35;border-radius:12px;padding:16px;text-align:center">
+          <div style="font-size:32px;font-weight:800;color:#FF6B35">${totalVentas.toFixed(2)} €</div>
+          <div style="font-size:13px;color:#888;margin-top:4px">Facturación total</div>
+        </div>
+        <div style="flex:1;background:#f5fff5;border:1.5px solid #41d36f;border-radius:12px;padding:16px;text-align:center">
+          <div style="font-size:32px;font-weight:800;color:#41d36f">${totalComandas}</div>
+          <div style="font-size:13px;color:#888;margin-top:4px">Comandas</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:24px">
+        <div style="font-size:13px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Ventas por categoría</div>
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          <thead>
+            <tr style="background:#f5f5f5">
+              <th style="padding:8px 12px;text-align:left;font-weight:700">Categoría</th>
+              <th style="padding:8px 12px;text-align:center;font-weight:700">Uds.</th>
+              <th style="padding:8px 12px;text-align:right;font-weight:700">Total</th>
+            </tr>
+          </thead>
+          <tbody>${catRows}</tbody>
+        </table>
+      </div>
+
+      <div>
+        <div style="font-size:13px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Top 5 platos</div>
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          <thead>
+            <tr style="background:#f5f5f5">
+              <th style="padding:8px 12px;text-align:left;font-weight:700">Plato</th>
+              <th style="padding:8px 12px;text-align:center;font-weight:700">Uds.</th>
+              <th style="padding:8px 12px;text-align:right;font-weight:700">Total</th>
+            </tr>
+          </thead>
+          <tbody>${top5Rows}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="background:#f5f5f5;padding:16px 32px;font-size:12px;color:#aaa;text-align:center">
+      Reporte generado automáticamente por QuickOrder
+    </div>
+  </div>
+</body>
+</html>`;
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from:    FROM_EMAIL,
+        to:      [REPORT_EMAIL],
+        subject: `Runfola · Reporte ${fecha} · ${totalVentas.toFixed(2)} €`,
+        html
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      log(`Reporte enviado a ${REPORT_EMAIL} | ${totalVentas.toFixed(2)} € en ${totalComandas} comandas`);
+    } else {
+      log(`Error Resend: ${JSON.stringify(data)}`);
+    }
+  } catch (e) {
+    log(`Error enviando reporte: ${e.message}`);
+  }
+
+  // Reset del día tras enviar
+  orders = [];
+  mesas  = mesas.map(m => ({ ...m, items: [], total: 0, estado: 'libre' }));
+  clientes = [];
+  broadcast({ type: 'sync', mesas, clientes });
+  log('Reset automático del día completado');
+}
+
+// ─── Scheduler 1:00 AM (Madrid) ───────────────────────────────────────────────
+function scheduleReport() {
+  const now    = new Date();
+  const target = new Date();
+  target.setHours(1, 0, 0, 0);
+  // Si ya pasó la 1 AM de hoy, programar para mañana
+  if (now >= target) target.setDate(target.getDate() + 1);
+  const ms = target - now;
+  log(`Próximo reporte en ${Math.round(ms/1000/60)} minutos`);
+  setTimeout(() => {
+    enviarReporte();
+    setInterval(enviarReporte, 24 * 60 * 60 * 1000); // cada 24h
+  }, ms);
+}
+scheduleReport();
 
 // ─── Arranque ─────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
