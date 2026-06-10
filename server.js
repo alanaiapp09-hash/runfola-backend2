@@ -21,6 +21,7 @@ let mesas = Array.from({ length: 20 }, (_, i) => ({
 }));
 let clientes = [];   // clientes de barra, creados en runtime
 let orders = [];     // historial de comandas del día
+let bills  = [];     // cuentas pendientes para caja
 
 // ─── Roles válidos ────────────────────────────────────────────────────────────
 // waiter  → camarero (recibe avisos de plato listo)
@@ -71,6 +72,12 @@ wss.on('connection', (ws, req) => {
     const pendientes = orders.filter(o => o.status === 'pending' && o.dest === destFiltro);
     pendientes.forEach(o => sendTo(ws, o));
     if (pendientes.length) log(`Enviadas ${pendientes.length} comandas pendientes a ${ws._role}`);
+  }
+  // Caja: enviar cuentas pendientes
+  if (ws._role === 'cash') {
+    const billsPend = bills.filter(b => b.status === 'pending');
+    billsPend.forEach(b => sendTo(ws, b));
+    if (billsPend.length) log(`Enviadas ${billsPend.length} cuentas pendientes a caja`);
   }
 
   ws.on('message', raw => {
@@ -145,15 +152,19 @@ wss.on('connection', (ws, req) => {
       // ── Camarero pide la cuenta ───────────────────────────────────────────
       case 'bill': {
         const label = msg.label || `Mesa ${msg.mesa}`;
-        broadcastToRole('cash', {
+        const bill = {
+          id: Date.now(),
           type:  'bill',
           mesa:  msg.mesa,
           label,
           items: msg.items || [],
           total: msg.total || 0,
           nota:  msg.nota  || '',
-          time:  new Date().toISOString()
-        });
+          time:  new Date().toISOString(),
+          status: 'pending'
+        };
+        bills.push(bill);
+        broadcastToRole('cash', bill);
         log(`Cuenta: ${label} → caja`);
         break;
       }
@@ -163,6 +174,9 @@ wss.on('connection', (ws, req) => {
         const m = mesas.find(x => x.id === msg.mesa);
         if (m) { m.items = []; m.total = 0; m.estado = 'libre'; }
         if (Array.isArray(msg.clientes)) clientes = msg.clientes;
+        // Marcar bill como cobrada
+        const b = bills.find(x => x.mesa === msg.mesa && x.status === 'pending');
+        if (b) b.status = 'paid';
         broadcast({ type: 'sync', mesas, clientes }, ws);
         log(`Cerrado: ${msg.mesa}`);
         break;
@@ -201,6 +215,7 @@ app.post('/reset', (_, res) => {
   mesas    = mesas.map(m => ({ ...m, items: [], total: 0, estado: 'libre' }));
   clientes = [];
   orders   = [];
+  bills    = [];
   broadcast({ type: 'sync', mesas, clientes });
   log('Reset del día');
   res.json({ ok: true });
@@ -341,6 +356,7 @@ async function enviarReporte() {
 
   // Reset del día tras enviar
   orders = [];
+  bills  = [];
   mesas  = mesas.map(m => ({ ...m, items: [], total: 0, estado: 'libre' }));
   clientes = [];
   broadcast({ type: 'sync', mesas, clientes });
