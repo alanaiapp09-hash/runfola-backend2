@@ -93,6 +93,8 @@ wss.on('connection', (ws, req) => {
 
         // Enviar al destino correcto — reenviar el objeto plano directamente
         const destRole = { barra: 'bar', cocina: 'kitchen', caja: 'cash' }[msg.dest] || msg.dest;
+        const rolesConectados = Array.from(wss.clients).map(c=>c._role).join(', ');
+        log(`Roles conectados: [${rolesConectados}] | buscando: ${destRole}`);
         broadcastToRole(destRole, order);
 
         // Confirmar al camarero
