@@ -64,6 +64,15 @@ wss.on('connection', (ws, req) => {
   // Al conectar, enviar estado actual para sincronizar la pantalla
   sendTo(ws, { type: 'sync', mesas, clientes });
 
+  // Si es cocina, barra o caja — enviar comandas pendientes
+  const destMap = { kitchen: 'cocina', bar: 'barra', cash: 'caja' };
+  const destFiltro = destMap[ws._role];
+  if (destFiltro) {
+    const pendientes = orders.filter(o => o.status === 'pending' && o.dest === destFiltro);
+    pendientes.forEach(o => sendTo(ws, o));
+    if (pendientes.length) log(`Enviadas ${pendientes.length} comandas pendientes a ${ws._role}`);
+  }
+
   ws.on('message', raw => {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
@@ -115,11 +124,9 @@ wss.on('connection', (ws, req) => {
         const item    = msg.item;
         const label   = msg.label || `Mesa ${msg.mesa}`;
 
-        // Marcar en historial si viene con orderId
-        if (orderId) {
-          const o = orders.find(x => x.id === orderId);
-          if (o) o.status = 'ready';
-        }
+        // Marcar en historial
+        const o = orders.find(x => x.id === msg.orderId || (x.mesa === msg.mesa && x.status === 'pending'));
+        if (o) o.status = 'ready';
 
         // Notificar a todos los camareros
         broadcastToRole('waiter', {
