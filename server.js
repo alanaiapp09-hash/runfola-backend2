@@ -195,8 +195,120 @@ wss.on('connection', (ws, req) => {
 // ─── REST ─────────────────────────────────────────────────────────────────────
 app.use(express.json());
 
+// CORS para que el frontend pueda llamar al backend
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 // Health check para Railway
 app.get('/', (_, res) => res.json({ ok: true, app: 'QuickOrder', uptime: process.uptime() }));
+
+// ─── MENÚ ─────────────────────────────────────────────────────────────────────
+let menuData = {
+  restaurante: { nombre: 'Runfola', subtitulo: 'coffee · pizzería · bar' },
+  categorias: [
+    {id:'bebidas',label:'Bebidas',dest:'barra',items:[
+      {id:'be1',n:'Agua',p:1.50},{id:'be2',n:'Refresco',p:2.50},
+      {id:'be3',n:'Cerveza',p:2.80},{id:'be4',n:'Vino de la casa',p:6.00},{id:'be5',n:'Café',p:1.50}
+    ]},
+    {id:'entrantes',label:'Entrantes',dest:'cocina',items:[
+      {id:'co1',n:'Pan de ajo',p:7.90},{id:'co2',n:'Tequeños',p:7.90},{id:'co3',n:'Patatas Bravioli',p:7.00},
+      {id:'en1',n:'Provoleta',p:8.90},{id:'en2',n:'Albóndigas de Napoli',p:9.90},
+      {id:'en3',n:'Fingers de pollo',p:8.00},{id:'en4',n:'Patatas Frankfurt',p:8.00},
+      {id:'es1',n:'Ensalada Caprese',p:9.90},{id:'es2',n:'Ensalada Burrata',p:9.90},
+      {id:'es3',n:'Ensalada César',p:9.90},{id:'es4',n:'Ensalada Atún',p:9.90}
+    ]},
+    {id:'pizzas',label:'Pizzas',dest:'cocina',items:[
+      {id:'pz1',n:'Margarita',p:9.90},{id:'pz2',n:'Tentazione',p:12.90},
+      {id:'pz3',n:'Carbonara',p:12.90},{id:'pz4',n:'Diavola',p:11.90},
+      {id:'pz5',n:'Diavola Dolce',p:11.90},{id:'pz6',n:'Diavola Inferno',p:11.90},
+      {id:'pz7',n:'Bella Italia',p:12.90},{id:'pz8',n:'Prosciutto e Funghi',p:12.90},
+      {id:'pz9',n:'4 Formaggi',p:11.90},{id:'pz10',n:'Capricciosa',p:12.90},
+      {id:'pz11',n:'Tonno',p:12.90},{id:'pz12',n:'Franfumina',p:12.90},
+      {id:'pz13',n:'Pizza de queso',p:12.90},
+      {id:'pt1',n:'Pizzeta Margarita',p:9.90},{id:'pt2',n:'Pizzeta Tentazione',p:12.90},
+      {id:'pt3',n:'Pizzeta Carbonara',p:12.90},{id:'pt4',n:'Pizzeta Diavola',p:11.90},
+      {id:'pt5',n:'Pizzeta Diavola Dolce',p:11.90},{id:'pt6',n:'Pizzeta Diavola Inferno',p:11.90},
+      {id:'pt7',n:'Pizzeta Bella Italia',p:12.90},{id:'pt8',n:'Pizzeta Prosciutto e Funghi',p:12.90},
+      {id:'pt9',n:'Pizzeta 4 Formaggi',p:11.90},{id:'pt10',n:'Pizzeta Capricciosa',p:12.90},
+      {id:'pt11',n:'Pizzeta Tonno',p:12.90},{id:'pt12',n:'Pizzeta Franfumina',p:12.90},
+      {id:'pd1',n:'Pizzeta Nutella',p:8.00},{id:'pd2',n:'Pizzeta Pistacho',p:8.00}
+    ]},
+    {id:'postres',label:'Postres',dest:'cocina',items:[
+      {id:'po1',n:'Tarta de queso',p:5.00},{id:'po2',n:'Flan',p:3.90},
+      {id:'po3',n:'Natillas',p:3.90},{id:'po4',n:'Helado',p:3.00},{id:'po5',n:'Granizado',p:3.50}
+    ]}
+  ]
+};
+
+// Obtener menú completo
+app.get('/menu', (_, res) => res.json(menuData));
+
+// Añadir plato a una categoría
+app.post('/menu/:catId/items', (req, res) => {
+  const cat = menuData.categorias.find(c => c.id === req.params.catId);
+  if (!cat) return res.status(404).json({ error: 'Categoría no encontrada' });
+  const { n, p } = req.body;
+  if (!n || p === undefined) return res.status(400).json({ error: 'Nombre y precio requeridos' });
+  const id = req.params.catId.slice(0, 2) + '_' + Date.now();
+  const item = { id, n, p: Number(p) };
+  cat.items.push(item);
+  broadcast({ type: 'menu-update', menu: menuData });
+  log(`Menú: añadido "${n}" a ${cat.label}`);
+  res.json(item);
+});
+
+// Editar plato
+app.put('/menu/items/:itemId', (req, res) => {
+  for (const cat of menuData.categorias) {
+    const item = cat.items.find(x => x.id === req.params.itemId);
+    if (item) {
+      if (req.body.n !== undefined) item.n = req.body.n;
+      if (req.body.p !== undefined) item.p = Number(req.body.p);
+      broadcast({ type: 'menu-update', menu: menuData });
+      log(`Menú: editado "${item.n}" → ${item.p}€`);
+      return res.json(item);
+    }
+  }
+  res.status(404).json({ error: 'Plato no encontrado' });
+});
+
+// Eliminar plato
+app.delete('/menu/items/:itemId', (req, res) => {
+  for (const cat of menuData.categorias) {
+    const idx = cat.items.findIndex(x => x.id === req.params.itemId);
+    if (idx !== -1) {
+      const removed = cat.items.splice(idx, 1)[0];
+      broadcast({ type: 'menu-update', menu: menuData });
+      log(`Menú: eliminado "${removed.n}" de ${cat.label}`);
+      return res.json({ ok: true });
+    }
+  }
+  res.status(404).json({ error: 'Plato no encontrado' });
+});
+
+// Añadir categoría
+app.post('/menu/categorias', (req, res) => {
+  const { id, label, dest } = req.body;
+  if (!id || !label) return res.status(400).json({ error: 'id y label requeridos' });
+  menuData.categorias.push({ id, label, dest: dest || 'cocina', items: [] });
+  broadcast({ type: 'menu-update', menu: menuData });
+  log(`Menú: nueva categoría "${label}"`);
+  res.json({ ok: true });
+});
+
+// Editar info restaurante
+app.put('/menu/restaurante', (req, res) => {
+  if (req.body.nombre) menuData.restaurante.nombre = req.body.nombre;
+  if (req.body.subtitulo) menuData.restaurante.subtitulo = req.body.subtitulo;
+  broadcast({ type: 'menu-update', menu: menuData });
+  log(`Menú: info restaurante actualizada`);
+  res.json(menuData.restaurante);
+});
 
 // Estado actual (útil para depuración)
 app.get('/status', (_, res) => res.json({
