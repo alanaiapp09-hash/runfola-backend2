@@ -218,9 +218,11 @@ let menuData = {
     {id:'entrantes',label:'Entrantes',dest:'cocina',items:[
       {id:'co1',n:'Pan de ajo',p:7.90},{id:'co2',n:'Tequeños',p:7.90},{id:'co3',n:'Patatas Bravioli',p:7.00},
       {id:'en1',n:'Provoleta',p:8.90},{id:'en2',n:'Albóndigas de Napoli',p:9.90},
-      {id:'en3',n:'Fingers de pollo',p:8.00},{id:'en4',n:'Patatas Frankfurt',p:8.00},
-      {id:'es1',n:'Ensalada Caprese',p:9.90},{id:'es2',n:'Ensalada Burrata',p:9.90},
-      {id:'es3',n:'Ensalada César',p:9.90},{id:'es4',n:'Ensalada Atún',p:9.90}
+      {id:'en3',n:'Fingers de pollo',p:8.00},{id:'en4',n:'Patatas Frankfurt',p:8.00}
+    ]},
+    {id:'ensaladas',label:'Ensaladas',dest:'cocina',items:[
+      {id:'es1',n:'Caprese',p:9.90},{id:'es2',n:'Burrata',p:9.90},
+      {id:'es3',n:'César',p:9.90},{id:'es4',n:'Atún',p:9.90}
     ]},
     {id:'pizzas',label:'Pizzas',dest:'cocina',items:[
       {id:'pz1',n:'Margarita',p:9.90},{id:'pz2',n:'Tentazione',p:12.90},
@@ -229,18 +231,20 @@ let menuData = {
       {id:'pz7',n:'Bella Italia',p:12.90},{id:'pz8',n:'Prosciutto e Funghi',p:12.90},
       {id:'pz9',n:'4 Formaggi',p:11.90},{id:'pz10',n:'Capricciosa',p:12.90},
       {id:'pz11',n:'Tonno',p:12.90},{id:'pz12',n:'Franfumina',p:12.90},
-      {id:'pz13',n:'Pizza de queso',p:12.90},
+      {id:'pz13',n:'Pizza de queso',p:12.90}
+    ]},
+    {id:'pizzetas',label:'Pizzetas',dest:'cocina',nota_cat:'Formato individual · ingredientes extra +1€',items:[
       {id:'pt1',n:'Pizzeta Margarita',p:9.90},{id:'pt2',n:'Pizzeta Tentazione',p:12.90},
       {id:'pt3',n:'Pizzeta Carbonara',p:12.90},{id:'pt4',n:'Pizzeta Diavola',p:11.90},
       {id:'pt5',n:'Pizzeta Diavola Dolce',p:11.90},{id:'pt6',n:'Pizzeta Diavola Inferno',p:11.90},
       {id:'pt7',n:'Pizzeta Bella Italia',p:12.90},{id:'pt8',n:'Pizzeta Prosciutto e Funghi',p:12.90},
       {id:'pt9',n:'Pizzeta 4 Formaggi',p:11.90},{id:'pt10',n:'Pizzeta Capricciosa',p:12.90},
-      {id:'pt11',n:'Pizzeta Tonno',p:12.90},{id:'pt12',n:'Pizzeta Franfumina',p:12.90},
-      {id:'pd1',n:'Pizzeta Nutella',p:8.00},{id:'pd2',n:'Pizzeta Pistacho',p:8.00}
+      {id:'pt11',n:'Pizzeta Tonno',p:12.90},{id:'pt12',n:'Pizzeta Franfumina',p:12.90}
     ]},
     {id:'postres',label:'Postres',dest:'cocina',items:[
       {id:'po1',n:'Tarta de queso',p:5.00},{id:'po2',n:'Flan',p:3.90},
-      {id:'po3',n:'Natillas',p:3.90},{id:'po4',n:'Helado',p:3.00},{id:'po5',n:'Granizado',p:3.50}
+      {id:'po3',n:'Natillas',p:3.90},{id:'po4',n:'Helado',p:3.00},{id:'po5',n:'Granizado',p:3.50},
+      {id:'pd1',n:'Pizzeta Nutella',p:8.00},{id:'pd2',n:'Pizzeta Pistacho',p:8.00}
     ]}
   ]
 };
@@ -308,6 +312,17 @@ app.put('/menu/restaurante', (req, res) => {
   broadcast({ type: 'menu-update', menu: menuData });
   log(`Menú: info restaurante actualizada`);
   res.json(menuData.restaurante);
+});
+
+// Eliminar categoría (solo si está vacía)
+app.delete('/menu/categorias/:catId', (req, res) => {
+  const idx = menuData.categorias.findIndex(c => c.id === req.params.catId);
+  if (idx === -1) return res.status(404).json({ error: 'Categoría no encontrada' });
+  if (menuData.categorias[idx].items.length > 0) return res.status(400).json({ error: 'La categoría tiene platos' });
+  const removed = menuData.categorias.splice(idx, 1)[0];
+  broadcast({ type: 'menu-update', menu: menuData });
+  log(`Menú: categoría eliminada "${removed.label}"`);
+  res.json({ ok: true });
 });
 
 // Estado actual (útil para depuración)
