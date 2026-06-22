@@ -103,6 +103,8 @@ wss.on('connection', (ws, req) => {
           type: 'order',
           mesa: msg.mesa,
           label: msg.label || `Mesa ${msg.mesa}`,
+          camarero: msg.camarero || '',
+          orderNum: msg.orderNum || '',
           dest: msg.dest,
           items: msg.items || [],
           nota: msg.nota || '',
@@ -112,16 +114,21 @@ wss.on('connection', (ws, req) => {
         };
         orders.push(order);
 
-        // Enviar al destino correcto — reenviar el objeto plano directamente
         const destRole = { barra: 'bar', cocina: 'kitchen', caja: 'cash' }[msg.dest] || msg.dest;
         const rolesConectados = Array.from(wss.clients).map(c=>c._role).join(', ');
         log(`Roles conectados: [${rolesConectados}] | buscando: ${destRole}`);
         broadcastToRole(destRole, order);
 
-        // Confirmar al camarero
-        sendTo(ws, { type: 'ack', orderId: order.id, dest: msg.dest });
+        // Copia a caja para control de cuenta
+        if (destRole !== 'cash') {
+          broadcastToRole('cash', { ...order, type: 'order-copy' });
+        }
 
-        log(`Pedido #${order.id} | ${order.label} → ${msg.dest} (${order.items.length} ítems)`);
+        // Auto-impresión a rol printer
+        broadcastToRole('printer', order);
+
+        sendTo(ws, { type: 'ack', orderId: order.id, dest: msg.dest });
+        log(`Pedido #${order.id} | ${order.label} → ${msg.dest} (${order.items.length} ítems) [${order.camarero}]`);
         break;
       }
 
@@ -205,46 +212,46 @@ app.use((req, res, next) => {
 });
 
 // Health check para Railway
-app.get('/', (_, res) => res.json({ ok: true, app: 'QuickOrder', uptime: process.uptime() }));
+app.get('/', (_, res) => res.json({ ok: true, app: 'Runfola · QuickOrder', uptime: process.uptime() }));
 
 // ─── MENÚ ─────────────────────────────────────────────────────────────────────
 let menuData = {
   restaurante: { nombre: 'Runfola', subtitulo: 'coffee · pizzería · bar' },
   categorias: [
-    {id:'bebidas',label:'Bebidas',dest:'barra',items:[
-      {id:'be1',n:'Agua',p:1.50},{id:'be2',n:'Refresco',p:2.50},
-      {id:'be3',n:'Cerveza',p:2.80},{id:'be4',n:'Vino de la casa',p:6.00},{id:'be5',n:'Café',p:1.50}
+    { id:'bebidas', label:'Bebidas', dest:'barra', items:[
+      {id:'bv1',n:'Café solo',p:1.50},{id:'bv2',n:'Café con leche',p:1.80},
+      {id:'bv3',n:'Cortado',p:1.60},{id:'bv4',n:'Cappuccino',p:2.50},
+      {id:'bv5',n:'Chocolate caliente',p:2.50},{id:'bv6',n:'Infusión',p:1.80},
+      {id:'bv7',n:'Agua pequeña',p:1.50},{id:'bv8',n:'Agua grande',p:2.50},
+      {id:'bv9',n:'Refresco',p:2.50},{id:'bv10',n:'Cerveza caña',p:2.50},
+      {id:'bv11',n:'Cerveza tercio',p:3.00},{id:'bv12',n:'Cerveza especial',p:3.50},
+      {id:'bv13',n:'Copa de vino',p:3.50},{id:'bv14',n:'Tinto de verano',p:3.00},
+      {id:'bv15',n:'Zumo natural',p:3.50}
     ]},
-    {id:'entrantes',label:'Entrantes',dest:'cocina',items:[
-      {id:'co1',n:'Pan de ajo',p:7.90},{id:'co2',n:'Tequeños',p:7.90},{id:'co3',n:'Patatas Bravioli',p:7.00},
-      {id:'en1',n:'Provoleta',p:8.90},{id:'en2',n:'Albóndigas de Napoli',p:9.90},
-      {id:'en3',n:'Fingers de pollo',p:8.00},{id:'en4',n:'Patatas Frankfurt',p:8.00}
+    { id:'pizzas', label:'Pizzas', dest:'cocina', items:[
+      {id:'pz1',n:'Margarita',p:11.90},{id:'pz2',n:'Genovesa',p:12.90},
+      {id:'pz3',n:'Proscuitto',p:12.90},{id:'pz4',n:'Diavola Inferno',p:12.90},
+      {id:'pz5',n:'Frankfurt',p:13.90},{id:'pz6',n:'Isleña',p:13.90},
+      {id:'pz7',n:'Tonno',p:13.90},{id:'pz8',n:'Barbacoa Pollo',p:13.90},
+      {id:'pz9',n:'Carbonara',p:13.90},{id:'pz10',n:'Diavola Dolce',p:13.90},
+      {id:'pz11',n:'Funghi & Proscuitto',p:13.90},{id:'pz12',n:'Pimientos Caramelizada',p:14.90},
+      {id:'pz13',n:'Tentazione',p:14.90},{id:'pz14',n:'Cabramelizada',p:14.90},
+      {id:'pz15',n:'Bella Italia',p:14.90},{id:'pz16',n:'Tartufatta',p:14.90},
+      {id:'pz17',n:'Capricchofa',p:14.90}
     ]},
-    {id:'ensaladas',label:'Ensaladas',dest:'cocina',items:[
-      {id:'es1',n:'Caprese',p:9.90},{id:'es2',n:'Burrata',p:9.90},
-      {id:'es3',n:'César',p:9.90},{id:'es4',n:'Atún',p:9.90}
+    { id:'ensaladas', label:'Ensaladas', dest:'cocina', items:[
+      {id:'es1',n:'Raf & Straciatella',p:11.90},{id:'es2',n:'César Pollo Asado',p:10.90},
+      {id:'es3',n:'Burrata',p:10.90},{id:'es4',n:'Atún y Olivas',p:11.90}
     ]},
-    {id:'pizzas',label:'Pizzas',dest:'cocina',items:[
-      {id:'pz1',n:'Margarita',p:9.90},{id:'pz2',n:'Tentazione',p:12.90},
-      {id:'pz3',n:'Carbonara',p:12.90},{id:'pz4',n:'Diavola',p:11.90},
-      {id:'pz5',n:'Diavola Dolce',p:11.90},{id:'pz6',n:'Diavola Inferno',p:11.90},
-      {id:'pz7',n:'Bella Italia',p:12.90},{id:'pz8',n:'Prosciutto e Funghi',p:12.90},
-      {id:'pz9',n:'4 Formaggi',p:11.90},{id:'pz10',n:'Capricciosa',p:12.90},
-      {id:'pz11',n:'Tonno',p:12.90},{id:'pz12',n:'Franfumina',p:12.90},
-      {id:'pz13',n:'Pizza de queso',p:12.90}
+    { id:'entrantes', label:'Entrantes', dest:'cocina', items:[
+      {id:'en1',n:'Pan de Ajo',p:8.90},{id:'en2',n:'Fonduta Provolone',p:8.90},
+      {id:'en3',n:'Tequeños',p:8.90},{id:'en4',n:'Patatas Braviolis',p:8.90},
+      {id:'en5',n:'Patatas Frankfurt',p:8.90},{id:'en6',n:'Fingers de Pollo',p:9.90},
+      {id:'en7',n:'Albóndigas Di Napoli',p:10.90}
     ]},
-    {id:'pizzetas',label:'Pizzetas',dest:'cocina',nota_cat:'Formato individual · ingredientes extra +1€',items:[
-      {id:'pt1',n:'Pizzeta Margarita',p:9.90},{id:'pt2',n:'Pizzeta Tentazione',p:12.90},
-      {id:'pt3',n:'Pizzeta Carbonara',p:12.90},{id:'pt4',n:'Pizzeta Diavola',p:11.90},
-      {id:'pt5',n:'Pizzeta Diavola Dolce',p:11.90},{id:'pt6',n:'Pizzeta Diavola Inferno',p:11.90},
-      {id:'pt7',n:'Pizzeta Bella Italia',p:12.90},{id:'pt8',n:'Pizzeta Prosciutto e Funghi',p:12.90},
-      {id:'pt9',n:'Pizzeta 4 Formaggi',p:11.90},{id:'pt10',n:'Pizzeta Capricciosa',p:12.90},
-      {id:'pt11',n:'Pizzeta Tonno',p:12.90},{id:'pt12',n:'Pizzeta Franfumina',p:12.90}
-    ]},
-    {id:'postres',label:'Postres',dest:'cocina',items:[
-      {id:'po1',n:'Tarta de queso',p:5.00},{id:'po2',n:'Flan',p:3.90},
-      {id:'po3',n:'Natillas',p:3.90},{id:'po4',n:'Helado',p:3.00},{id:'po5',n:'Granizado',p:3.50},
-      {id:'pd1',n:'Pizzeta Nutella',p:8.00},{id:'pd2',n:'Pizzeta Pistacho',p:8.00}
+    { id:'postres', label:'Postres', dest:'cocina', items:[
+      {id:'po1',n:'Pizza Dulce',p:8.90},{id:'po2',n:'Tarta de Queso Frutos Rojos',p:7.90},
+      {id:'po3',n:'Tiramisú',p:5.60}
     ]}
   ]
 };
@@ -340,12 +347,37 @@ app.get('/orders', (_, res) => res.json(orders));
 // Reset del día (llamar al abrir el local)
 app.post('/reset', (_, res) => {
   mesas    = mesas.map(m => ({ ...m, items: [], total: 0, estado: 'libre' }));
-  clientes = [];
-  orders   = [];
-  bills    = [];
+  clientes = []; orders = []; bills = []; ticketSeq = 1;
   broadcast({ type: 'sync', mesas, clientes });
   log('Reset del día');
   res.json({ ok: true });
+});
+
+// ─── Numeración de tickets ─────────────────────────────────────────────────
+let ticketSeq = 1;
+app.post('/ticket-number', (_, res) => {
+  const year = new Date().getFullYear();
+  const num  = ticketSeq++;
+  const id   = `${year}-${String(num).padStart(4,'0')}`;
+  log(`Ticket generado: ${id}`);
+  res.json({ id, num, year });
+});
+
+// ─── Enviar ticket por email ──────────────────────────────────────────────
+app.post('/ticket-email', async (req, res) => {
+  if (!RESEND_KEY) return res.status(500).json({ error: 'Resend no configurado' });
+  const { to, ticketHtml, subject } = req.body;
+  if (!to || !ticketHtml) return res.status(400).json({ error: 'email y ticketHtml requeridos' });
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject: subject || 'Factura simplificada · Runfola', html: ticketHtml })
+    });
+    const data = await r.json();
+    if (r.ok) { log(`Ticket enviado a ${to}`); res.json({ ok: true }); }
+    else { log(`Error email: ${JSON.stringify(data)}`); res.status(500).json(data); }
+  } catch (e) { log(`Error email: ${e.message}`); res.status(500).json({ error: e.message }); }
 });
 
 // ─── Reporte diario ───────────────────────────────────────────────────────────
@@ -482,9 +514,8 @@ async function enviarReporte() {
   }
 
   // Reset del día tras enviar
-  orders = [];
-  bills  = [];
-  mesas  = mesas.map(m => ({ ...m, items: [], total: 0, estado: 'libre' }));
+  orders = []; bills = []; ticketSeq = 1;
+  mesas    = mesas.map(m => ({ ...m, items: [], total: 0, estado: 'libre' }));
   clientes = [];
   broadcast({ type: 'sync', mesas, clientes });
   log('Reset automático del día completado');
