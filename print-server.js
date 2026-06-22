@@ -41,9 +41,11 @@ function printTicket(d, callback) {
   let ticket = INIT;
   ticket += CENTER;
   ticket += BOLD_ON + DOUBLE;
-  ticket += 'RUNFOLA' + LF;
+  ticket += 'RUNFOLA PIZZAS' + LF;
   ticket += NORMAL + BOLD_OFF;
-  ticket += 'coffee · pizzeria · bar' + LF;
+  ticket += 'CIF: 53460595Q' + LF;
+  ticket += 'Calle de la Orden 8' + LF;
+  ticket += '28791 Soto del Real' + LF;
   ticket += line;
 
   if (isCopy) {
