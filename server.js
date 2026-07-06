@@ -215,46 +215,7 @@ app.use((req, res, next) => {
 app.get('/', (_, res) => res.json({ ok: true, app: 'Runfola · QuickOrder', uptime: process.uptime() }));
 
 // ─── MENÚ ─────────────────────────────────────────────────────────────────────
-let menuData = {
-  restaurante: { nombre: 'Runfola', subtitulo: 'coffee · pizzería · bar' },
-  categorias: [
-    { id:'bebidas', label:'Bebidas', dest:'barra', items:[
-      {id:'bv1',n:'Café solo',p:1.50},{id:'bv2',n:'Café con leche',p:1.80},
-      {id:'bv3',n:'Cortado',p:1.60},{id:'bv4',n:'Cappuccino',p:2.50},
-      {id:'bv5',n:'Chocolate caliente',p:2.50},{id:'bv6',n:'Infusión',p:1.80},
-      {id:'bv7',n:'Agua pequeña',p:1.50},{id:'bv8',n:'Agua grande',p:2.50},
-      {id:'bv9',n:'Refresco',p:2.50},{id:'bv10',n:'Cerveza caña',p:2.50},
-      {id:'bv11',n:'Cerveza tercio',p:3.00},{id:'bv12',n:'Cerveza especial',p:3.50},
-      {id:'bv13',n:'Copa de vino',p:3.50},{id:'bv14',n:'Tinto de verano',p:3.00},
-      {id:'bv15',n:'Zumo natural',p:3.50}
-    ]},
-    { id:'pizzas', label:'Pizzas', dest:'cocina', items:[
-      {id:'pz1',n:'Margarita',p:11.90},{id:'pz2',n:'Genovesa',p:12.90},
-      {id:'pz3',n:'Proscuitto',p:12.90},{id:'pz4',n:'Diavola Inferno',p:12.90},
-      {id:'pz5',n:'Frankfurt',p:13.90},{id:'pz6',n:'Isleña',p:13.90},
-      {id:'pz7',n:'Tonno',p:13.90},{id:'pz8',n:'Barbacoa Pollo',p:13.90},
-      {id:'pz9',n:'Carbonara',p:13.90},{id:'pz10',n:'Diavola Dolce',p:13.90},
-      {id:'pz11',n:'Funghi & Proscuitto',p:13.90},{id:'pz12',n:'Pimientos Caramelizada',p:14.90},
-      {id:'pz13',n:'Tentazione',p:14.90},{id:'pz14',n:'Cabramelizada',p:14.90},
-      {id:'pz15',n:'Bella Italia',p:14.90},{id:'pz16',n:'Tartufatta',p:14.90},
-      {id:'pz17',n:'Capricchofa',p:14.90}
-    ]},
-    { id:'ensaladas', label:'Ensaladas', dest:'cocina', items:[
-      {id:'es1',n:'Raf & Straciatella',p:11.90},{id:'es2',n:'César Pollo Asado',p:10.90},
-      {id:'es3',n:'Burrata',p:10.90},{id:'es4',n:'Atún y Olivas',p:11.90}
-    ]},
-    { id:'entrantes', label:'Entrantes', dest:'cocina', items:[
-      {id:'en1',n:'Pan de Ajo',p:8.90},{id:'en2',n:'Fonduta Provolone',p:8.90},
-      {id:'en3',n:'Tequeños',p:8.90},{id:'en4',n:'Patatas Braviolis',p:8.90},
-      {id:'en5',n:'Patatas Frankfurt',p:8.90},{id:'en6',n:'Fingers de Pollo',p:9.90},
-      {id:'en7',n:'Albóndigas Di Napoli',p:10.90}
-    ]},
-    { id:'postres', label:'Postres', dest:'cocina', items:[
-      {id:'po1',n:'Pizza Dulce',p:8.90},{id:'po2',n:'Tarta de Queso Frutos Rojos',p:7.90},
-      {id:'po3',n:'Tiramisú',p:5.60}
-    ]}
-  ]
-};
+let menuData = {"restaurante":{"nombre":"Runfola","subtitulo":"coffee · pizzería · bar"},"categorias":[{"id":"pizzas","label":"Pizzas","dest":"cocina","items":[{"id":"pz1","n":"Margarita","p":9.9},{"id":"pz2","n":"Genovesa","p":11.9},{"id":"pz3","n":"Prosciutto","p":11.9},{"id":"pz4","n":"Diavola Inferno","p":11.9},{"id":"pz5","n":"Diavola Dolce","p":11.9},{"id":"pz6","n":"Frankfurt","p":11.9},{"id":"pz7","n":"Isleña","p":11.9},{"id":"pz8","n":"Funghi e Prosciutto","p":11.9},{"id":"pz9","n":"Tentazione","p":12.9},{"id":"pz10","n":"Cabramelizada","p":12.9},{"id":"pz11","n":"Bella Italia","p":12.9},{"id":"pz12","n":"Tartufata","p":12.9},{"id":"pz13","n":"Tonno","p":12.9},{"id":"pz14","n":"Capricciosa","p":12.9},{"id":"pz15","n":"Vegetariana","p":12.9},{"id":"pz16","n":"BBQ Pollo Asado","p":13.9},{"id":"pz17","n":"Carbonara","p":13.9},{"id":"pz18","n":"5 Formaggi","p":13.9},{"id":"pz19","n":"Pimientos Caramelizados","p":14.9},{"id":"pz20","n":"Pizza al Gusto","p":10.9}]},{"id":"pizzetas","label":"Pizzetas","dest":"cocina","items":[{"id":"pt1","n":"Margarita","p":7},{"id":"pt2","n":"Genovesa","p":7},{"id":"pt3","n":"Prosciutto","p":7},{"id":"pt4","n":"Diavola Inferno","p":7},{"id":"pt5","n":"Diavola Dolce","p":7},{"id":"pt6","n":"Frankfurt","p":7},{"id":"pt7","n":"Isleña","p":7},{"id":"pt8","n":"Funghi e Prosciutto","p":7},{"id":"pt9","n":"Tentazione","p":7},{"id":"pt10","n":"Cabramelizada","p":7},{"id":"pt11","n":"Bella Italia","p":7},{"id":"pt12","n":"Tartufata","p":7},{"id":"pt13","n":"Tonno","p":7},{"id":"pt14","n":"Capricciosa","p":7},{"id":"pt15","n":"Vegetariana","p":7},{"id":"pt16","n":"BBQ Pollo Asado","p":7},{"id":"pt17","n":"Carbonara","p":7},{"id":"pt18","n":"5 Formaggi","p":7},{"id":"pt19","n":"Pimientos Caramelizados","p":7},{"id":"pt20","n":"Pizzeta del Mundial","p":5}]},{"id":"entrantes","label":"Entrantes","dest":"cocina","items":[{"id":"en1","n":"Pan de Ajo","p":7.9},{"id":"en2","n":"Tequeños","p":7.9},{"id":"en3","n":"Patatas Bravioli","p":7},{"id":"en4","n":"Provoleta","p":8.9},{"id":"en5","n":"Albóndigas di Napoli","p":9.9},{"id":"en6","n":"Fingers de Pollo","p":8},{"id":"en7","n":"Patatas Frankfurt","p":8},{"id":"en8","n":"Aros de Cebolla","p":8},{"id":"en9","n":"Croquetas de Jamón","p":8}]},{"id":"ensaladas","label":"Ensaladas","dest":"cocina","items":[{"id":"es1","n":"Capresse","p":9.9},{"id":"es2","n":"Burrata","p":9.9},{"id":"es3","n":"César","p":9.9},{"id":"es4","n":"Atún","p":9.9}]},{"id":"bebidas","label":"Bebidas","dest":"barra","items":[{"id":"bv1","n":"Doble","p":3.2},{"id":"bv2","n":"Tercio","p":3.2},{"id":"bv3","n":"Tercio 0'0","p":3.2},{"id":"bv4","n":"Tercio Sin Gluten","p":3.2},{"id":"bv5","n":"Rivera Reposada","p":3.2},{"id":"bv6","n":"1906","p":3.2},{"id":"bv7","n":"Estrella Galicia","p":3.2},{"id":"bv8","n":"Jarra","p":5},{"id":"bv9","n":"Coca Cola","p":2.5},{"id":"bv10","n":"Coca Cola Zero","p":2.5},{"id":"bv11","n":"Fanta Limón","p":2.5},{"id":"bv12","n":"Fanta Naranja","p":2.5},{"id":"bv13","n":"Nestea","p":2.5},{"id":"bv14","n":"Nestea Maracuyá","p":2.5},{"id":"bv15","n":"Aquarius Limón","p":2.5},{"id":"bv16","n":"Aquarius Naranja","p":2.5},{"id":"bv17","n":"Agua con Gas","p":2.5},{"id":"bv18","n":"Agua","p":2},{"id":"bv19","n":"Copa Vino","p":4},{"id":"bv20","n":"Botella Vino ALMA","p":15}]},{"id":"postres","label":"Postres","dest":"cocina","items":[{"id":"po1","n":"Tarta de Queso","p":5},{"id":"po2","n":"Helado","p":3},{"id":"po3","n":"Granizado","p":3.5},{"id":"po4","n":"Pizzeta Nutella","p":7},{"id":"po5","n":"Pizzeta Pistacho","p":7}]}]};
 
 // Obtener menú completo
 app.get('/menu', (_, res) => res.json(menuData));
