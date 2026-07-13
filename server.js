@@ -132,6 +132,32 @@ wss.on('connection', (ws, req) => {
         break;
       }
 
+      // ── Camarero anula un ítem ya enviado → avisar a la estación ──────────
+      case 'cancel': {
+        const cancel = {
+          id: Date.now(),
+          type: 'cancel',
+          mesa: msg.mesa,
+          label: msg.label || `Mesa ${msg.mesa}`,
+          camarero: msg.camarero || '',
+          orderNum: msg.orderNum || '',
+          dest: msg.dest,
+          items: msg.items || [],
+          time: msg.time || new Date().toISOString()
+        };
+
+        const destRole = { barra: 'bar', cocina: 'kitchen', caja: 'cash' }[msg.dest] || msg.dest;
+        broadcastToRole(destRole, cancel);
+
+        // Copia a caja para restar del control de mesas
+        if (destRole !== 'cash') {
+          broadcastToRole('cash', { ...cancel, type: 'cancel-copy' });
+        }
+
+        log(`Anulación: ${cancel.label} → ${msg.dest} (${cancel.items.length} ítems) [${cancel.camarero}]`);
+        break;
+      }
+
       // ── Cocina/barra marca un plato como listo → avisar al camarero ───────
       case 'ready': {
         const orderId = msg.orderId;
