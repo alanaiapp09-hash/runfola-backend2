@@ -345,6 +345,31 @@ app.post('/ticket-number', (_, res) => {
   res.json({ id, num, year });
 });
 
+// ─── Reset diario ───────────────────────────────────────────────────────────
+function resetDiario() {
+  orders = []; bills = []; ticketSeq = 1;
+  mesas    = mesas.map(m => ({ ...m, items: [], total: 0, estado: 'libre' }));
+  clientes = [];
+  broadcast({ type: 'sync', mesas, clientes });
+  log('Reset automático del día completado');
+}
+
+// ─── Scheduler 1:00 AM (Madrid) ───────────────────────────────────────────────
+function scheduleResetDiario() {
+  const now    = new Date();
+  const target = new Date();
+  target.setHours(1, 0, 0, 0);
+  // Si ya pasó la 1 AM de hoy, programar para mañana
+  if (now >= target) target.setDate(target.getDate() + 1);
+  const ms = target - now;
+  log(`Próximo reset diario en ${Math.round(ms/1000/60)} minutos`);
+  setTimeout(() => {
+    resetDiario();
+    setInterval(resetDiario, 24 * 60 * 60 * 1000); // cada 24h
+  }, ms);
+}
+scheduleResetDiario();
+
 // ─── Arranque ─────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => log(`QuickOrder backend escuchando en :${PORT}`));
