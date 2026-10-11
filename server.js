@@ -55,6 +55,8 @@ function log(msg) {
 wss.on('connection', (ws, req) => {
   const params = new URL(req.url, 'http://localhost').searchParams;
   ws._role = params.get('role') || 'waiter';
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
   log(`Conectado: ${ws._role} (total: ${wss.clients.size})`);
 
   // Al conectar, enviar estado actual para sincronizar la pantalla
@@ -159,8 +161,13 @@ wss.on('connection', (ws, req) => {
         const item    = msg.item;
         const label   = msg.label || `Mesa ${msg.mesa}`;
 
-        // Marcar en historial
-        const o = orders.find(x => x.id === msg.orderId || (x.mesa === msg.mesa && x.status === 'pending'));
+        // Marcar en historial: SOLO la comanda que coincide exactamente (id, o si no hay id, mesa+orderNum+dest)
+        const o = msg.orderId != null
+          ? orders.find(x => x.id === msg.orderId && x.status === 'pending')
+          : orders.find(x => x.mesa === msg.mesa
+              && (!msg.orderNum || x.orderNum === msg.orderNum)
+              && (!msg.dest || x.dest === msg.dest)
+              && x.status === 'pending');
         if (o) o.status = 'ready';
 
         // Notificar a todos los camareros
@@ -219,6 +226,18 @@ wss.on('connection', (ws, req) => {
     log(`Desconectado: ${ws._role} (total: ${wss.clients.size})`);
   });
 });
+
+// ─── Heartbeat (ping/pong) ────────────────────────────────────────────────────
+// Evita que proxies/wifi corten conexiones "idle": si un cliente no responde
+// al ping en un ciclo, se asume muerto y se cierra para forzar su reconexión.
+const heartbeatInterval = setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (ws.isAlive === false) { ws.terminate(); return; }
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 27000);
+wss.on('close', () => clearInterval(heartbeatInterval));
 
 // ─── REST ─────────────────────────────────────────────────────────────────────
 app.use(express.json());
